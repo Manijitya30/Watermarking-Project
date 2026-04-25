@@ -235,16 +235,6 @@ Saved in `results/`:
 
 ---
 
-## 🔮 Future Work
-
-* Forgery localization (pixel-level detection)
-* Support for deepfake detection
-* Lightweight model for real-time deployment
-* FastAPI + Docker deployment
-* Automatic threshold calibration
-
----
-
 ## 🛠️ Tech Stack
 
 * Python
