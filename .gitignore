@@ -5,6 +5,11 @@ __pycache__/
 *.pyc
 node_modules/
 frontend/node_modules/
+
+# keep model code
+# keep results graphs
+
+# ignore heavy stuff if present
 checkpoints/
-model/
-results/
+*.pt
+*.pth
