@@ -1,0 +1,708 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Copy-Move Forgery Detection</title>
+  <style>
+    :root{
+      --bg: #0b1220;
+      --card: rgba(255,255,255,0.06);
+      --card2: rgba(255,255,255,0.10);
+      --text: #e9eefc;
+      --muted: rgba(233,238,252,0.70);
+      --border: rgba(255,255,255,0.14);
+      --accent: #7c5cff;
+      --accent2: #22c55e;
+      --danger: #ef4444;
+      --shadow: 0 20px 60px rgba(0,0,0,0.35);
+    }
+
+    *{ box-sizing: border-box; }
+    body{
+      margin: 0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      color: var(--text);
+      background:
+        radial-gradient(1200px 600px at 10% 0%, rgba(124,92,255,0.40), transparent 60%),
+        radial-gradient(900px 500px at 100% 20%, rgba(34,197,94,0.25), transparent 55%),
+        radial-gradient(900px 500px at 40% 110%, rgba(59,130,246,0.22), transparent 55%),
+        var(--bg);
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+
+    .app{
+      width: min(1000px, 100%);
+      display: grid;
+      gap: 18px;
+    }
+
+    header{
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .title{
+      display: grid;
+      gap: 6px;
+    }
+    .title h1{
+      margin: 0;
+      font-size: clamp(20px, 2.2vw, 28px);
+      letter-spacing: 0.2px;
+    }
+    .title p{
+      margin: 0;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.4;
+    }
+
+    .badge{
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.05);
+      color: var(--muted);
+      font-size: 12px;
+      user-select: none;
+      white-space: nowrap;
+    }
+    .dot{
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      background: var(--accent2);
+      box-shadow: 0 0 0 4px rgba(34,197,94,0.16);
+    }
+
+    .grid{
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+    }
+    @media (max-width: 900px){
+      .grid{ grid-template-columns: 1fr; }
+      header{ flex-direction: column; align-items: flex-start; }
+    }
+
+    .card{
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+    .card .inner{
+      padding: 16px;
+      display: grid;
+      gap: 14px;
+    }
+    .card h2{
+      margin: 0;
+      font-size: 14px;
+      color: var(--muted);
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .dropzone{
+      border-radius: 16px;
+      border: 1px dashed rgba(255,255,255,0.26);
+      background: rgba(255,255,255,0.04);
+      padding: 16px;
+      display: grid;
+      gap: 12px;
+      transition: 150ms ease;
+      min-height: 240px;
+    }
+    .dropzone.dragover{
+      border-color: rgba(124,92,255,0.9);
+      background: rgba(124,92,255,0.10);
+      transform: translateY(-1px);
+    }
+
+    .row{
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+    }
+
+    .btn{
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      padding: 10px 12px;
+      border-radius: 12px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: 150ms ease;
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+      user-select: none;
+    }
+    .btn:hover{ transform: translateY(-1px); border-color: rgba(255,255,255,0.26); }
+    .btn:active{ transform: translateY(0px); }
+    .btn.primary{
+      background: linear-gradient(135deg, rgba(124,92,255,0.95), rgba(124,92,255,0.55));
+      border-color: rgba(124,92,255,0.40);
+    }
+    .btn.danger{
+      background: rgba(239,68,68,0.12);
+      border-color: rgba(239,68,68,0.28);
+      color: #fecaca;
+    }
+    .btn:disabled{
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    input[type="file"]{ display: none; }
+
+    .hint{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .previewWrap{
+      display: grid;
+      gap: 10px;
+    }
+
+    .preview{
+      width: 100%;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.16);
+      background: rgba(0,0,0,0.18);
+      aspect-ratio: 16 / 10;
+      display: grid;
+      place-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+    .preview img{
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: none;
+      background: #0b0f1a;
+    }
+    .preview .placeholder{
+      color: rgba(233,238,252,0.55);
+      font-size: 13px;
+      padding: 14px;
+      text-align: center;
+    }
+
+    .fileMeta{
+      display: grid;
+      gap: 4px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.05);
+    }
+    .fileMeta .name{
+      font-weight: 700;
+      font-size: 13px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .fileMeta .sub{
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .rightCard .inner{
+      gap: 12px;
+    }
+
+    .field{
+      display: grid;
+      gap: 8px;
+    }
+    .label{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    .input{
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.05);
+      color: var(--text);
+      outline: none;
+    }
+    .input:focus{
+      border-color: rgba(124,92,255,0.55);
+      box-shadow: 0 0 0 4px rgba(124,92,255,0.15);
+    }
+
+    .status{
+      border-radius: 14px;
+      padding: 12px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.05);
+      display: grid;
+      gap: 10px;
+      min-height: 98px;
+    }
+
+    .statusTop{
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .pill{
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(255,255,255,0.06);
+    }
+    .pill.good{
+      border-color: rgba(34,197,94,0.35);
+      background: rgba(34,197,94,0.12);
+      color: #bbf7d0;
+    }
+    .pill.bad{
+      border-color: rgba(239,68,68,0.35);
+      background: rgba(239,68,68,0.12);
+      color: #fecaca;
+    }
+    .pill.neutral{
+      color: var(--muted);
+    }
+
+    .meter{
+      width: 100%;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.10);
+      border: 1px solid rgba(255,255,255,0.10);
+      overflow: hidden;
+    }
+    .meter > div{
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg, rgba(34,197,94,0.90), rgba(124,92,255,0.90));
+      transition: width 250ms ease;
+    }
+
+    .statusText{
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .spinner{
+      width: 14px; height: 14px;
+      border-radius: 999px;
+      border: 2px solid rgba(255,255,255,0.30);
+      border-top-color: rgba(255,255,255,0.85);
+      animation: spin 900ms linear infinite;
+      display: none;
+    }
+    @keyframes spin{ to{ transform: rotate(360deg); } }
+
+    footer{
+      color: rgba(233,238,252,0.55);
+      font-size: 12px;
+      line-height: 1.4;
+      padding: 2px 2px 0;
+    }
+    a{ color: rgba(233,238,252,0.80); }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <header>
+      <div class="title">
+        <h1>Copy-Move Forgery Detection</h1>
+        <p>Upload an image to classify it as <b>Authentic</b> or <b>Forged</b>. For best results, use clear, uncompressed images.</p>
+      </div>
+      <div class="badge" id="apiBadge" title="Backend API status">
+        <span class="dot" id="apiDot"></span>
+        <span id="apiText">API: not checked</span>
+      </div>
+    </header>
+
+    <section class="grid">
+      <section class="card">
+        <div class="inner">
+          <h2>Image upload</h2>
+
+          <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload image">
+            <div class="row">
+              <div class="hint">
+                <b>Drag and drop</b> an image here, or choose a file.
+                <div style="margin-top:6px;">Supported: JPG, PNG, WEBP. Max size depends on server settings.</div>
+              </div>
+
+              <div class="row">
+                <label class="btn" for="imageInput">Choose file</label>
+                <input id="imageInput" type="file" accept="image/*" />
+                <button class="btn danger" id="clearBtn" type="button" disabled>Clear</button>
+              </div>
+            </div>
+
+            <div class="previewWrap">
+              <div class="preview" id="previewBox">
+                <div class="placeholder" id="placeholder">
+                  No image selected.
+                  <div style="margin-top:6px;">Tip: click this area to pick a file.</div>
+                </div>
+                <img id="previewImg" alt="Selected image preview" />
+              </div>
+
+              <div class="fileMeta" id="fileMeta" style="display:none;">
+                <div class="name" id="fileName"></div>
+                <div class="sub" id="fileSub"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <button class="btn primary" id="predictBtn" type="button" disabled>
+              <span class="spinner" id="spinner"></span>
+              <span id="predictText">Run prediction</span>
+            </button>
+            <div class="hint" id="clientHint">Your image is sent to the API for inference.</div>
+          </div>
+        </div>
+      </section>
+
+      <aside class="card rightCard">
+        <div class="inner">
+          <h2>Result</h2>
+
+          <div class="field">
+            <div class="label">API URL</div>
+            <input class="input" id="apiUrl" value="http://127.0.0.1:5000" />
+            <div style="display:flex; justify-content:flex-end; margin-top:-6px;">
+    <label style="font-size:10px; opacity:0.3; cursor:pointer;">
+      <input type="checkbox" id="preToggle" style="transform:scale(0.7); margin-right:3px;">
+      pp
+    </label>
+  </div>
+            <div class="hint">If you serve this UI from Flask, you can set this to an empty value and use relative calls.</div>
+          </div>
+
+          <div class="status" aria-live="polite">
+            <div class="statusTop">
+              <div class="pill neutral" id="pill">No result</div>
+              <div class="hint" id="confidenceText">Confidence: —</div>
+            </div>
+
+            <div class="meter" title="Confidence meter">
+              <div id="meterBar"></div>
+            </div>
+
+            <div class="statusText" id="statusText">
+              Upload an image and run prediction to see the classification and confidence.
+            </div>
+          </div>
+
+          <footer>
+            Notes: Confidence is derived from the model score returned by the API and may not be calibrated.
+            For deployment, place the UI and API on the same domain and use HTTPS.
+          </footer>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const els = {
+      dropzone: document.getElementById('dropzone'),
+      imageInput: document.getElementById('imageInput'),
+      previewImg: document.getElementById('previewImg'),
+      placeholder: document.getElementById('placeholder'),
+      fileMeta: document.getElementById('fileMeta'),
+      fileName: document.getElementById('fileName'),
+      fileSub: document.getElementById('fileSub'),
+      clearBtn: document.getElementById('clearBtn'),
+      predictBtn: document.getElementById('predictBtn'),
+      predictText: document.getElementById('predictText'),
+      spinner: document.getElementById('spinner'),
+      pill: document.getElementById('pill'),
+      confidenceText: document.getElementById('confidenceText'),
+      statusText: document.getElementById('statusText'),
+      meterBar: document.getElementById('meterBar'),
+      apiUrl: document.getElementById('apiUrl'),
+      apiDot: document.getElementById('apiDot'),
+      apiText: document.getElementById('apiText'),
+    };
+
+    let selectedFile = null;
+    let abortController = null;
+
+    function humanBytes(bytes){
+      if (!Number.isFinite(bytes)) return '';
+      const units = ['B','KB','MB','GB'];
+      let i = 0, v = bytes;
+      while (v >= 1024 && i < units.length - 1){ v /= 1024; i++; }
+      return `${v.toFixed(v >= 10 || i === 0 ? 0 : 1)} ${units[i]}`;
+    }
+
+    function setBusy(isBusy){
+      els.predictBtn.disabled = isBusy || !selectedFile;
+      els.clearBtn.disabled = isBusy || !selectedFile;
+      els.imageInput.disabled = isBusy;
+      els.spinner.style.display = isBusy ? 'inline-block' : 'none';
+      els.predictText.textContent = isBusy ? 'Processing…' : 'Run prediction';
+    }
+
+    function setResult(state){
+      // state: { kind: 'neutral'|'good'|'bad', label, confidence (0..1 or null), text }
+      els.pill.className = `pill ${state.kind || 'neutral'}`;
+      els.pill.textContent = state.label || 'No result';
+
+      if (typeof state.confidence === 'number'){
+        const pct = Math.max(0, Math.min(1, state.confidence));
+        els.confidenceText.textContent = `Confidence: ${(pct * 100).toFixed(2)}%`;
+        els.meterBar.style.width = `${pct * 100}%`;
+      } else {
+        els.confidenceText.textContent = 'Confidence: —';
+        els.meterBar.style.width = '0%';
+      }
+
+      els.statusText.textContent = state.text || '';
+    }
+
+    function setApiStatus(ok, text){
+      els.apiDot.style.background = ok ? 'var(--accent2)' : 'var(--danger)';
+      els.apiDot.style.boxShadow = ok ? '0 0 0 4px rgba(34,197,94,0.16)' : '0 0 0 4px rgba(239,68,68,0.16)';
+      els.apiText.textContent = text;
+    }
+
+    function normalizeApiBase(){
+      const raw = (els.apiUrl.value || '').trim();
+      return raw.endsWith('/') ? raw.slice(0, -1) : raw;
+    }
+
+    function isImageFile(file){
+      return file && file.type && file.type.startsWith('image/');
+    }
+
+    function updatePreview(file){
+      if (!file){
+        selectedFile = null;
+        els.previewImg.src = '';
+        els.previewImg.style.display = 'none';
+        els.placeholder.style.display = 'block';
+        els.fileMeta.style.display = 'none';
+        els.predictBtn.disabled = true;
+        els.clearBtn.disabled = true;
+        setResult({
+          kind: 'neutral',
+          label: 'No result',
+          confidence: null,
+          text: 'Upload an image and run prediction to see the classification and confidence.'
+        });
+        return;
+      }
+
+      selectedFile = file;
+      const url = URL.createObjectURL(file);
+      els.previewImg.onload = () => URL.revokeObjectURL(url);
+      els.previewImg.src = url;
+      els.previewImg.style.display = 'block';
+      els.placeholder.style.display = 'none';
+
+      els.fileMeta.style.display = 'grid';
+      els.fileName.textContent = file.name;
+      els.fileSub.textContent = `${file.type || 'image'} • ${humanBytes(file.size)}`;
+
+      els.predictBtn.disabled = false;
+      els.clearBtn.disabled = false;
+
+      setResult({
+        kind: 'neutral',
+        label: 'Ready',
+        confidence: null,
+        text: 'Click “Run prediction” to send the image to the API.'
+      });
+    }
+
+    async function checkApi(){
+      const base = normalizeApiBase();
+      const url = base ? `${base}/` : `/`;
+      try{
+        const res = await fetch(url, { method: 'GET' });
+        if (res.ok){
+          setApiStatus(true, 'API: online');
+        } else {
+          setApiStatus(false, `API: error (${res.status})`);
+        }
+      } catch (e){
+        setApiStatus(false, 'API: offline');
+      }
+    }
+
+    async function runPrediction(){
+      if (!selectedFile) return;
+
+      const base = normalizeApiBase();
+      const endpoint = base ? `${base}/predict` : `/predict`;
+
+      if (!isImageFile(selectedFile)){
+        setResult({
+          kind: 'bad',
+          label: 'Invalid file',
+          confidence: null,
+          text: 'Please choose an image file (JPG/PNG/WEBP).'
+        });
+        return;
+      }
+
+      abortController = new AbortController();
+      setBusy(true);
+      setResult({
+        kind: 'neutral',
+        label: 'Running',
+        confidence: null,
+        text: 'Sending image to the API and waiting for prediction…'
+      });
+
+      try{
+        const form = new FormData();
+        form.append('image', selectedFile);
+
+        
+        const usePre = document.getElementById('preToggle').checked;
+        form.append('use_preprocessing', usePre);
+
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          body: form,
+          signal: abortController.signal
+        });
+
+        let data = null;
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')){
+          data = await res.json();
+        } else {
+          const t = await res.text();
+          throw new Error(`Unexpected response: ${t.slice(0, 200)}`);
+        }
+
+        if (!res.ok){
+          throw new Error(data?.error || `Request failed (${res.status})`);
+        }
+
+        const prediction = data?.prediction;
+        const conf = Number(data?.confidence);
+        const conf01 = Number.isFinite(conf) ? Math.max(0, Math.min(1, conf)) : null;
+
+        const isForged = (prediction || '').toLowerCase() === 'forged';
+
+        setResult({
+          kind: isForged ? 'bad' : 'good',
+          label: prediction || 'Unknown',
+          confidence: conf01,
+          text: isForged
+            ? 'The model indicates signs consistent with copy-move forgery. Review visually and consider further forensic checks.'
+            : 'The model indicates the image is likely authentic. If this is high-stakes, validate using additional methods.'
+        });
+
+        await checkApi();
+      } catch (e){
+        if (e.name === 'AbortError'){
+          setResult({
+            kind: 'neutral',
+            label: 'Canceled',
+            confidence: null,
+            text: 'Request was canceled.'
+          });
+        } else {
+          setResult({
+            kind: 'bad',
+            label: 'Error',
+            confidence: null,
+            text: String(e.message || e)
+          });
+          await checkApi();
+        }
+      } finally {
+        setBusy(false);
+        abortController = null;
+      }
+    }
+
+    // Events
+    els.imageInput.addEventListener('change', (ev) => {
+      const f = ev.target.files && ev.target.files[0];
+      updatePreview(f || null);
+    });
+
+    els.clearBtn.addEventListener('click', () => {
+      if (abortController) abortController.abort();
+      els.imageInput.value = '';
+      updatePreview(null);
+    });
+
+    els.predictBtn.addEventListener('click', runPrediction);
+
+    // Dropzone UX
+    function onPick(){
+      if (!els.imageInput.disabled) els.imageInput.click();
+    }
+    els.dropzone.addEventListener('click', (e) => {
+      // Avoid clicking on buttons/inputs
+      const tag = (e.target && e.target.tagName || '').toLowerCase();
+      if (tag === 'button' || tag === 'input' || tag === 'label') return;
+      onPick();
+    });
+    els.dropzone.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') onPick();
+    });
+
+    els.dropzone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      els.dropzone.classList.add('dragover');
+    });
+    els.dropzone.addEventListener('dragleave', () => els.dropzone.classList.remove('dragover'));
+    els.dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      els.dropzone.classList.remove('dragover');
+      const f = e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) updatePreview(f);
+    });
+
+    els.apiUrl.addEventListener('change', checkApi);
+
+    // Initial
+    setResult({
+      kind: 'neutral',
+      label: 'No result',
+      confidence: null,
+      text: 'Upload an image and run prediction to see the classification and confidence.'
+    });
+    checkApi();
+  </script>
+</body>
+</html>
